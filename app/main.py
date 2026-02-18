@@ -6,7 +6,7 @@ import time
 from app.scraper import search_clinics
 from app.classifier import classify_clinic
 
-
+from app.storage import CSVStorage
 
 # -------------------------------------------------
 # Logging Setup
@@ -47,6 +47,12 @@ def main():
 
     logger.info(f"Final private clinics: {len(filtered_clinics)}")
     print(filtered_clinics[:3])
+
+
+    storage = CSVStorage()
+
+    storage.save_clinics(filtered_clinics)
+
 
 
 
