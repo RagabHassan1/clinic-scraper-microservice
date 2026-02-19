@@ -28,6 +28,7 @@ class CSVStorage:
                     f,
                     fieldnames=[
                         "clinic_name",
+                        "doctor_name",
                         "phone_number",
                         "address",
                         "maps_link",
@@ -80,6 +81,7 @@ class CSVStorage:
                     f,
                     fieldnames=[
                         "clinic_name",
+                        "doctor_name",
                         "phone_number",
                         "address",
                         "maps_link",

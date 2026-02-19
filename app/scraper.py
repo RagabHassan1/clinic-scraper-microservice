@@ -94,11 +94,21 @@ def search_clinics(query: str) -> List[Dict]:
         if not normalized_phone:
             continue
 
+        # SerpApi's google_maps engine does not return a direct "link" field.
+        # However it always returns a "place_id" (e.g. "ChIJkXKOZZhZwokR...").
+        # We construct the standard Google Maps URL from it.
+        # This URL opens directly to the place's Maps page when clicked.
+        place_id = place.get("place_id")
+        if place_id:
+            maps_link = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+        else:
+            maps_link = None
+
         clinic = {
             "clinic_name": place.get("title"),
             "phone_number": normalized_phone,
             "address": place.get("address"),
-            "maps_link": place.get("link")
+            "maps_link": maps_link
         }
 
         clinics.append(clinic)

@@ -1,17 +1,20 @@
-clinic_name,phone_number,address,maps_link,confidence_score
-911 Dental clinic - Dr shereef Azab,+201061555988,"75 Al Mehwar Al Markazi Al Nassr St, First 6th of October, Giza Governorate 3232412",,High
-Ultra Dental Care And Esthetics,+201115111171,"7 Al Mehwar Al Markazi Al Nassr St, First 6th of October, Giza Governorate 12566",,High
-Dento Lashen - 6th October - Dr.Reham Lashen,+201093907239,"412 Al Mehwar Al Markazi, First 6th of October, Giza Governorate 12566",,High
-Dental House,+201156655005,"29 Mixed Zone, Beverly Hills Compound Sheikh Zayed, 6th of October, 6th October, Greater Cairo, Giza Governorate 12451",,High
-DentoCare Dental Clinic,+201114448686,"المحور المركزي برج ١ برعي بلازا اعلى محلات شعبان الدور الاول 6 اكتوبر, Giza Governorate 12573",,High
-Dental Valley October,+201066545435,"مجمع المروة - عمارة بي تك - الدور 2 - عيادة 4, First 6th of October, Giza Governorate 3232004",,High
-32 Dental Clinic - Dr. Karim Radwan,+201012340916,"6th October City - El Centeral Street - Building, Giza Governorate 12511",,High
-Tooth&Co. Dental clinic لتجميل الفم و زراعة الأسنان,+201004714777,"عيادة 110, المحور المركزي - كايرو ميديكال سنتر, Giza Governorate",,High
-Hisham Sholkamy dental clinic (october branch),+201060460900,"287 Al Mehwar Al Markazi, First 6th of October, 6th of October City (2), Giza Governorate 12111",,High
-Smile Zone Dental centers October Branch – مركز أكتوبر لطب الأسنان,+201093477795,"عالم الستائر, الحي السابع مج ١ ش أبو بكر الصديق سنتر الأردنية برج ٤ أ الدور ١ بجوار, Giza Governorate 12573",,High
-Klinics - Dr Karim Fahmy Dentist & Dental Center - عيادات كلينكس د كريم فهمي لتجميل و تقويم الأسنان,+201152257464,"الحصري - شارع مكتبة جامعة 6 اكتوبر برج السفراء الدور الثاني اداري أعلي مستشفى تبارك 8, 6th of October, Giza Governorate 12566",,High
-IVORY DENTAL CLINICS,+201019841600,"317 Al Mehwar Al Markazi, First 6th of October, 6th of October City (2), Giza Governorate 12563",,High
-Sky Dental Clinic by Dr. Alaa Khairy,+201155644730,"قطعة رقم 1, Gamal Abd El-Nasir, First 6th of October, Giza Governorate 3236051",,High
-عيادة د. أسامة عامر لتجميل وزراعة الأسنان - Dr. Osama Amer Dental Clinic,+201555529291,"بعد مسجد الحصري وقبل التوحيد والنور أبراج أكتوبر بلازا, برج i, Al Mehwar Al Markazi, First 6th of October, Giza Governorate 12573",,High
-Smile Up Dental Clinic,+201096277790,"63 Al Mehwar Al Markazi Al Nassr St, First 6th of October, Giza Governorate 3232412",,High
-DENTAL HUB Clinic for Dentistry Services - 6 October | عياده دنتال هاب لطب وجراحة الأسنان - 6 أكتوبر,+201044986361,"امام بنك الاسكان و التعمير, الحي الرابع المجاوره الأولى, Street 22, 6th of October City (2), Giza Governorate 3387722",,High
+clinic_name,doctor_name,phone_number,address,maps_link,confidence_score
+911 Dental clinic - Dr shereef Azab,Shereef Azab,+201061555988,"75 Al Mehwar Al Markazi Al Nassr St, First 6th of October, Giza Governorate 3232412",https://www.google.com/maps/place/?q=place_id:ChIJBRbRTfZWWBQRKCOdYd0txko,High
+Ultra Dental Care And Esthetics,,+201115111171,"7 Al Mehwar Al Markazi Al Nassr St, First 6th of October, Giza Governorate 12566",https://www.google.com/maps/place/?q=place_id:ChIJW3xZemdWWBQRNpzjn0F9x7Q,High
+LDC - La Dent Care,,+201091101064,"Mohammed Farid, First 6th of October, Giza Governorate, Egypt محمد فريد، قسم أول 6 أكتوبر، اول 6 أكتوبر،, Giza Governorate",https://www.google.com/maps/place/?q=place_id:ChIJ9cAaB89XWBQR3T0eds6Ij5w,High
+Dental House,,+201156655005,"29 Mixed Zone, Beverly Hills Compound Sheikh Zayed, 6th of October, 6th October, Greater Cairo, Giza Governorate 12451",https://www.google.com/maps/place/?q=place_id:ChIJz8vMuKZZWBQR75yRFXaT0_Q,High
+DentoCare Dental Clinic,,+201114448686,"المحور المركزي برج ١ برعي بلازا اعلى محلات شعبان الدور الاول 6 اكتوبر, Giza Governorate 12573",https://www.google.com/maps/place/?q=place_id:ChIJrQy8liBXWBQR2q-4Hfb7GWg,High
+Tooth&Co. Dental clinic لتجميل الفم و زراعة الأسنان,,+201004714777,"عيادة 110, المحور المركزي - كايرو ميديكال سنتر, Giza Governorate",https://www.google.com/maps/place/?q=place_id:ChIJyVpjAD5XWBQRkjEJje9bBNE,High
+32 Dental Clinic - Dr. Karim Radwan,Karim Radwan,+201012340916,"6th October City - El Centeral Street - Building, Giza Governorate 12511",https://www.google.com/maps/place/?q=place_id:ChIJ4cj9zuRWWBQRzj62AQBEHUk,High
+Hisham Sholkamy dental clinic (october branch),Hisham Sholkamy,+201060460900,"287 Al Mehwar Al Markazi, First 6th of October, 6th of October City (2), Giza Governorate 12111",https://www.google.com/maps/place/?q=place_id:ChIJIxS4hQxXWBQRH-ijxPyTVWU,High
+Sky Dental Clinic by Dr. Alaa Khairy,Alaa Khairy,+201155644730,"قطعة رقم 1, Gamal Abd El-Nasir, First 6th of October, Giza Governorate 3236051",https://www.google.com/maps/place/?q=place_id:ChIJz3KKXABXWBQRxwwPpJlwvb8,High
+Klinics - Dr Karim Fahmy Dentist & Dental Center - عيادات كلينكس د كريم فهمي لتجميل و تقويم الأسنان,Karim Fahmy,+201152257464,"الحصري - شارع مكتبة جامعة 6 اكتوبر برج السفراء الدور الثاني اداري أعلي مستشفى تبارك 8, 6th of October, Giza Governorate 12566",https://www.google.com/maps/place/?q=place_id:ChIJdyiPoAVXWBQR2GIZ3ojC0hI,High
+عيادة د. أسامة عامر لتجميل وزراعة الأسنان - Dr. Osama Amer Dental Clinic,أسامة عامر,+201555529291,"بعد مسجد الحصري وقبل التوحيد والنور أبراج أكتوبر بلازا, برج i, Al Mehwar Al Markazi, First 6th of October, Giza Governorate 12573",https://www.google.com/maps/place/?q=place_id:ChIJ7-Jc7yJXWBQRXkoUFwm2bfE,High
+IVORY DENTAL CLINICS,,+201019841600,"317 Al Mehwar Al Markazi, First 6th of October, 6th of October City (2), Giza Governorate 12563",https://www.google.com/maps/place/?q=place_id:ChIJp3qsir9XWBQRYRrxtpNMeqA,High
+Smile Up Dental Clinic,,+201096277790,"63 Al Mehwar Al Markazi Al Nassr St, First 6th of October, Giza Governorate 3232412",https://www.google.com/maps/place/?q=place_id:ChIJOwPnPPZWWBQRmCOzcujQgYE,High
+REFORM DENTAL CENTER,,+201111219777,"Borg Al Ateba 1, Al Mehwar Al Markazi, 6 October Near, Al Nagda Square, Giza Governorate",https://www.google.com/maps/place/?q=place_id:ChIJvdo5lB5BWBQRt7PfH1YidEw,High
+Genesis Dental Crew,,+201022949238,"Cairo medical center , floor 2 , clinic no.50 6 October City, Giza Governorate 12573",https://www.google.com/maps/place/?q=place_id:ChIJfYNb89ZXWBQR7547zAPGWgc,High
+Dento Lashen - 6th October - Dr.Reham Lashen,Reham Lashen,+201093907239,"412 Al Mehwar Al Markazi, First 6th of October, Giza Governorate 12566",https://www.google.com/maps/place/?q=place_id:ChIJD8nhY9tXWBQR4TtHkRP34Ik,High
+Dental Valley October,,+201066545435,"مجمع المروة - عمارة بي تك - الدور 2 - عيادة 4, First 6th of October, Giza Governorate 3232004",https://www.google.com/maps/place/?q=place_id:ChIJ5X5Vh9hRWBQRqDjGulW5N_0,High
+Hayat clinic - عيادة حياة,,+201003388715,"سيلا مول, Al Mehwar Al Markazi, First 6th of October, Giza Governorate 3232004",https://www.google.com/maps/place/?q=place_id:ChIJkRBD3v1XWBQRyN08GVIjtak,High
+DENTAL HUB Clinic for Dentistry Services - 6 October | عياده دنتال هاب لطب وجراحة الأسنان - 6 أكتوبر,,+201044986361,"امام بنك الاسكان و التعمير, الحي الرابع المجاوره الأولى, Street 22, 6th of October City (2), Giza Governorate 3387722",https://www.google.com/maps/place/?q=place_id:ChIJPwjTIOFXWBQRyof7Pl1WYp0,High
