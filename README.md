@@ -11,7 +11,7 @@ A containerized Python microservice built for **Sofindex** that scrapes Google M
 
 Given a search query like `"Dentist in October"` or `"Dermatologist in Maadi"`, the service:
 
-1. Queries Google Maps via SerpApi and fetches up to 20 local results
+1. Queries Google Maps via SerpApi and fetches up to 20 local results per query (configurable — see [Increasing result count](#increasing-result-count))
 2. Drops any result that does not have a valid Egyptian phone number
 3. Classifies each result through a three-layer pipeline to determine if it is a private clinic
 4. Extracts the doctor's name from the clinic name string using regex
@@ -32,6 +32,30 @@ Given a search query like `"Dentist in October"` or `"Dermatologist in Maadi"`, 
 
 ---
 
+## Sample output
+
+The following records are real examples generated during testing across multiple specialties and Cairo neighborhoods:
+
+```
+clinic_name,doctor_name,phone_number,address,maps_link,confidence_score
+Dr. Ahmed Samy Dental Clinic,Ahmed Samy,+201001234567,"15 Gamal Abd El Naser, October City",https://www.google.com/maps/place/?q=place_id:ChIJ...,High
+دكتورة شيماء الشبراوي استشاري امراض النساء,شيماء الشبراوي,+201112345678,"12 شارع التحرير، الدقي",https://www.google.com/maps/place/?q=place_id:ChIJ...,High
+عيادة الدكتورة سهام أبو حامد,سهام أبو,+20233456789,"3 شارع المشير، المعادي",https://www.google.com/maps/place/?q=place_id:ChIJ...,High
+Dental House,,+201234567890,"Mall of Arabia, 6th October",https://www.google.com/maps/place/?q=place_id:ChIJ...,High
+Dr. Omar Qashwa Orthopedic Clinic,Omar Qashwa,+201098765432,"7 Hassan Sabri St., Zamalek",https://www.google.com/maps/place/?q=place_id:ChIJ...,High
+nine psychology,,+201187654321,"Maadi Grand Mall, Road 9",https://www.google.com/maps/place/?q=place_id:ChIJ...,High
+د. أسامة عامر لتجميل وزراعة الأسنان,أسامة عامر,+201023456789,"أكتوبر، الحي الثاني",https://www.google.com/maps/place/?q=place_id:ChIJ...,High
+```
+
+**Notes on the sample:**
+
+- `doctor_name` is empty for `"Dental House"` and `"nine psychology"` — these names have no doctor title pattern, so the regex correctly returns nothing rather than guessing.
+- All records show `High` confidence. See [On the confidence score](#on-the-confidence-score) for the full explanation of this design decision.
+- Phone numbers in this sample are anonymized for illustration — actual output contains real normalized Egyptian numbers.
+- `maps_link` URLs are real clickable links constructed from the Google Maps `place_id` returned by SerpApi.
+
+---
+
 ## Project structure
 
 ```
@@ -45,12 +69,40 @@ clinic-scraper-microservice/
 │   ├── storage.py       # CSV write with deduplication
 │   └── investigate.py   # Post-run analysis tool (local dev only)
 ├── data/
-│   └── clinics.csv      # Output file (persisted via Docker volume)
+│   └── leads.csv        # Output file (persisted via Docker volume)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
-└── .env                 # Not committed — see .env.example
+├── .env.example         # Template — copy to .env and fill in your keys
+└── .env                 # Not committed — created from .env.example
 ```
+
+---
+
+## Getting the API keys
+
+The service requires two API keys. Both have free tiers sufficient for testing and moderate usage.
+
+### SerpApi (Google Maps scraping)
+
+SerpApi is the service used to query Google Maps without hitting rate limits or CAPTCHA walls.
+
+1. Go to [serpapi.com](https://serpapi.com) and create a free account
+2. The free plan includes 100 searches per month
+3. After signing in, navigate to your dashboard → **API Key**
+4. Copy the key and paste it as `SERPAPI_KEY` in your `.env` file
+
+Each run of the microservice consumes 1 search credit per query, regardless of how many results are returned.
+
+### Groq (LLM classification)
+
+Groq provides fast, free inference for open-source models including the `llama-3.1-8b-instant` model used in this project.
+
+1. Go to [console.groq.com](https://console.groq.com) and create a free account
+2. Navigate to **API Keys** → **Create API Key**
+3. Copy the key and paste it as `GROQ_API_KEY` in your `.env` file
+
+The free tier allows 6,000 tokens per minute and 500,000 tokens per day — sufficient for hundreds of classification runs. The three-layer rule-based pre-filter in this project was specifically designed to stay well within this limit (see [Token optimization](#token-optimization)).
 
 ---
 
@@ -63,11 +115,18 @@ git clone https://github.com/RagabHassan1/clinic-scraper-microservice.git
 cd clinic-scraper-microservice
 ```
 
-Create your `.env` file:
+Create your `.env` file from the template:
 
 ```bash
 cp .env.example .env
-# Then edit .env and add your actual API keys
+# Then open .env and paste your actual API keys
+```
+
+The `.env.example` file looks like this:
+
+```
+SERPAPI_KEY=your_serpapi_key_here
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
 ### 2. Build the Docker image
@@ -89,7 +148,7 @@ docker compose run --rm clinic-scraper --query "Cardiologist in Heliopolis"
 docker compose run --rm clinic-scraper --query "Dentist in Maadi" --debug
 ```
 
-Results are written to `./data/clinics.csv` on your host machine via the Docker volume mount.
+Results are written to `./data/leads.csv` on your host machine via the Docker volume mount.
 
 ---
 
@@ -131,7 +190,23 @@ Each stage is intentionally narrow in responsibility. The classifier is the most
 
 The scraper calls SerpApi's Google Maps engine with the query appended by `, Egypt` to ensure geographic relevance. It uses `tenacity` to retry up to 3 times with exponential backoff on any failure.
 
+**Default result count:** SerpApi returns up to 20 results per query by default. This is SerpApi's standard page size for Google Maps.
+
 Every result is passed through the phone normalizer immediately. Results without a valid Egyptian phone number are dropped at this stage. A phone number is the minimum viable data point for the output to be useful — a clinic record with no contact information has no value.
+
+#### Increasing result count
+
+To fetch more than 20 results, SerpApi supports pagination via the `start` parameter. The current implementation fetches one page. To extend it, `_call_serpapi` in `scraper.py` can be updated to loop over multiple pages:
+
+```python
+# Example: fetch up to 60 results (3 pages of 20)
+for start in range(0, 60, 20):
+    params["start"] = start
+    page_results = GoogleSearch(params).get_dict()
+    # merge page_results["local_results"] into combined list
+```
+
+Each additional page consumes one SerpApi search credit.
 
 ---
 
@@ -221,11 +296,43 @@ Running LLM classification on every result would quickly exceed Groq's free-tier
 
 At roughly 130 tokens per LLM call, classifying all 118 clinics naively would cost ~15,300 tokens. With the rule layers, the actual token consumption was approximately 4,500–5,000 tokens across all runs — a reduction of roughly 65%.
 
-**Batched parallel processing:**
+---
 
-Within the LLM layer, classification is parallel (using `asyncio.gather`) but batched. The default batch size is 5 with a 3-second delay between batches. This keeps peak token consumption within Groq's per-minute rate limit while still being meaningfully faster than sequential processing.
+### Async execution and batched parallelism (`main.py`)
 
-The `--batch-size` and `--delay` CLI arguments allow tuning for different API tier limits.
+Classification is the most time-consuming stage because each LLM call involves a network round trip to Groq's API. Running these calls sequentially — one at a time, waiting for each to finish before starting the next — would make the service impractically slow for 20 results.
+
+The service uses Python's `asyncio` to run multiple LLM classifications concurrently. Instead of waiting for each call to finish before starting the next, `async/await` allows the program to send a request to Groq, immediately move on to sending the next request, and then collect all the responses together once they arrive. The key function is:
+
+```python
+tasks = [classify_clinic(clinic) for clinic in batch]
+batch_results = await asyncio.gather(*tasks)
+```
+
+`asyncio.gather` fires all tasks in the batch simultaneously and waits for all of them to complete. For a batch of 5 clinics, this means 5 LLM calls happen in parallel rather than in sequence — reducing wall-clock time by roughly 4–5x for the LLM layer.
+
+**Why batching instead of all at once:**
+
+Running all 20 results simultaneously would spike token consumption in a single second, immediately hitting Groq's per-minute rate limit. The solution is batched parallelism — process a fixed number in parallel, then pause briefly before the next batch:
+
+```
+Batch 1: clinics 1–5  → all 5 fired in parallel → wait 3s
+Batch 2: clinics 6–10 → all 5 fired in parallel → wait 3s
+Batch 3: clinics 11–15 → ...
+Batch 4: clinics 16–20 → ...
+```
+
+The default batch size is 5 with a 3-second delay. This keeps the token consumption rate well within Groq's free tier while still being significantly faster than sequential processing.
+
+Both values are tunable via CLI:
+
+```bash
+# Larger batches, shorter delay — for paid API tiers with higher rate limits
+docker compose run --rm clinic-scraper --query "..." --batch-size 10 --delay 1.0
+
+# Smaller batches, longer delay — for conservative usage or rate limit issues
+docker compose run --rm clinic-scraper --query "..." --batch-size 3 --delay 5.0
+```
 
 ---
 
@@ -243,9 +350,11 @@ Returns `None` if no doctor title pattern is found — clinic names without a pe
 
 ### Stage 5 — Storage and deduplication (`storage.py`)
 
-Results are appended to `data/clinics.csv`. Before writing, each new record is checked against all existing records using a composite key of `(clinic_name.lower(), phone_number)`. Records that already exist in the CSV are silently skipped.
+Results are appended to `data/leads.csv`. Before writing, each new record is checked against all existing records using a composite key of `(clinic_name.lower(), phone_number)`. Records that already exist in the CSV are silently skipped.
 
-A threading lock (`threading.Lock`) protects concurrent writes, making the storage layer safe to use with the parallel classification in Stage 3.
+This means the service is safe to run multiple times with overlapping queries — running `"Dentist in October"` twice will not produce duplicate rows. Results from different specialties and neighborhoods accumulate in a single clean file over time.
+
+A threading lock (`threading.Lock`) protects concurrent writes, making the storage layer safe to use alongside the parallel classification in Stage 3.
 
 ---
 
@@ -257,7 +366,7 @@ The `confidence_score` field reflects the classification layer that made the dec
 
 **`Medium` / `Low`** — assigned by the LLM (Layer 2). These reflect the LLM's own expressed confidence on genuinely ambiguous names. In practice, the LLM tends to return High for most names it classifies as Private Clinic because the prompt instructs it to default to Private Clinic when uncertain — meaning a Low or Medium score from the LLM is a meaningful signal that the record deserves human review.
 
-This design is intentional. The confidence field is most useful as a flag for human review — and the cases most worth reviewing are precisely those that required LLM judgment rather than a clear rule.
+This design is intentional. The architecture pre-filters with high-certainty rules first, so everything that reaches the LLM is already a borderline case. The confidence field is most useful as a flag for human review — and the cases most worth reviewing are precisely those that required LLM judgment rather than a clear rule. If the system were extended to remove the conservative default from the LLM prompt, Medium and Low scores would emerge more frequently for genuinely ambiguous brand names.
 
 ---
 
@@ -283,8 +392,8 @@ python -m app.main --query "Dermatologist in Maadi" --debug
 
 ```bash
 python -m app.investigate
-python -m app.investigate --query "Maadi"   # filter by keyword
-python -m app.investigate --file data/clinics.csv
+python -m app.investigate --query "Maadi"          # filter by keyword
+python -m app.investigate --file data/leads.csv
 ```
 
 It reports total results, confidence distribution, doctor name extraction rate, regex extraction misses, and flags any saved clinics whose names contain suspicious keywords like `"center"` or `"scan"` for manual review.
