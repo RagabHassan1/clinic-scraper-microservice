@@ -12,7 +12,7 @@ _lock = threading.Lock()
 
 class CSVStorage:
 
-    def __init__(self, filepath: str = "data/clinics.csv"):
+    def __init__(self, filepath: str = "data/leads.csv"):
 
         self.filepath = filepath
 
