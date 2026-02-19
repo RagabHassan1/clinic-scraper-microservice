@@ -8,7 +8,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
-COPY investigate.py .
 
 # The data directory is where the CSV output lands. We create it here so
 # the directory exists even if no volume is mounted, and declare it as a
