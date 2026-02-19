@@ -10,9 +10,10 @@ from app.storage import CSVStorage
 # -------------------------------------------------
 # Logging Setup
 # -------------------------------------------------
+# Basic config — level will be overridden after args are parsed
+# if --debug is passed. We set INFO as default.
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - [%(name)s] - %(message)s"
 )
 
 logger = logging.getLogger(__name__)
@@ -98,7 +99,8 @@ async def run(query: str, batch_size: int, delay: float):
         return
 
     logger.info(
-        f"Fetched {len(raw_clinics)} raw results. "
+        f"Fetched {len(raw_clinics)} raw results (already filtered: "
+        f"clinics without a valid phone number were dropped by scraper). "
         f"Classifying in batches of {batch_size} with {delay}s delay..."
     )
 
@@ -111,8 +113,13 @@ async def run(query: str, batch_size: int, delay: float):
 
     # Step 3: Filter Nones
     filtered_clinics = [r for r in results if r is not None]
+    discarded = len(raw_clinics) - len(filtered_clinics)
 
-    logger.info(f"Final private clinics found: {len(filtered_clinics)}")
+    logger.info(
+        f"Classification complete — "
+        f"kept: {len(filtered_clinics)}, "
+        f"discarded: {discarded}"
+    )
 
     if filtered_clinics:
         print("\nSample results (first 3):")
@@ -121,6 +128,7 @@ async def run(query: str, batch_size: int, delay: float):
 
     # Step 4: Save
     storage = CSVStorage()
+    storage.save_clinics(filtered_clinics)
     storage.save_clinics(filtered_clinics)
 
 
@@ -160,7 +168,30 @@ def main():
         )
     )
 
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help=(
+            "Enable DEBUG logging. Shows raw LLM responses, which layer "
+            "handled each clinic (RULE-ACCEPT / RULE-EXCLUDE / LLM), "
+            "and dropped clinics (no phone). Use this when investigating "
+            "edge cases across different specialties."
+        )
+    )
+
     args = parser.parse_args()
+
+    # Apply log level based on --debug flag
+    # DEBUG → shows everything including raw LLM responses
+    # INFO  → normal run, shows classification results only
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.getLogger().setLevel(log_level)
+
+    # Also set the level on the httpx logger that Groq uses —
+    # without this, DEBUG mode gets flooded with low-level HTTP logs
+    # that are not useful for our investigation.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     asyncio.run(run(
         query=args.query,

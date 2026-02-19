@@ -90,8 +90,12 @@ def search_clinics(query: str) -> List[Dict]:
         raw_phone = place.get("phone")
         normalized_phone = normalize_phone(raw_phone)
 
-        # Drop clinics without valid phone
+        # Drop clinics without valid phone — log at DEBUG so --debug flag exposes them
         if not normalized_phone:
+            logger.debug(
+                f"DROPPED (no valid phone): '{place.get('title')}' "
+                f"| raw phone: '{raw_phone}'"
+            )
             continue
 
         # SerpApi's google_maps engine does not return a direct "link" field.
