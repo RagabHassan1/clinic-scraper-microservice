@@ -2,17 +2,11 @@ import re
 from typing import Optional
 
 
-# -------------------------------------------------
-# Egyptian Phone Normalizer
-# -------------------------------------------------
-
 def normalize_phone(phone: Optional[str]) -> Optional[str]:
     """
-    Normalize Egyptian phone numbers to international format.
-
-    Mobile:       01XXXXXXXXX  → +201XXXXXXXXX
-    Cairo:        02XXXXXXXX   → +202XXXXXXXX
-    Alexandria:   03XXXXXXX    → +203XXXXXXX
+    Normalize Egyptian phone numbers to international format (+2XXXXXXXXXX).
+    Handles mobile lines (01x), Cairo landlines (02x), and Alexandria (03x).
+    Returns None if the input doesn't match any recognized Egyptian format.
     """
     if not phone:
         return None
@@ -28,6 +22,8 @@ def normalize_phone(phone: Optional[str]) -> Optional[str]:
     if re.fullmatch(r"03[0-9]{7}", cleaned):
         return "+2" + cleaned
 
+    # Some numbers come embedded in longer strings (e.g. "Tel: 01012345678 ext 3").
+    # Try extracting a mobile number as a last resort.
     mobile_match = re.search(r"01[0-9]{9}", cleaned)
     if mobile_match:
         return "+2" + mobile_match.group()
@@ -35,40 +31,25 @@ def normalize_phone(phone: Optional[str]) -> Optional[str]:
     return None
 
 
-# -------------------------------------------------
-# Doctor Name Extractor
-# -------------------------------------------------
+# --- Doctor name extraction ---
 #
-# Strategy: capture-then-clean
-#   1. Capture up to 2-3 words after the doctor title
-#   2. Strip trailing medical specialty words from the capture
-#   3. Hard-cap at 3 Arabic words (Egyptian names = first + father's name + surname)
+# Strategy: match the doctor title, capture the words that follow,
+# then strip any trailing specialty/role words to isolate the personal name.
 #
-# Pattern ordering matters:
-#   - Arabic abbreviated forms (د. / د/) run BEFORE the full دكتور pattern
-#     because they have an unambiguous delimiter (. or /) and are more specific.
-#     If دكتور ran first, "د.ابراهيم شعراوي دكتور عظام" would match the
-#     trailing "دكتور عظام" and return None after cleaning.
-#   - English primary (with lookahead stop) runs before English fallback.
-#
-# Fixes vs previous version:
-#   FIX 1 — دكتورة / دكتوره (feminine forms) added to pattern
-#   FIX 2 — الدكتور / الدكتورة / الدكتوره (definite article form) added
-#   FIX 3 — د/ (slash variant) added as separate pattern
-#   FIX 4 — Arabic specialty words stripped from capture via _clean_arabic()
-#   FIX 5 — English specialty words expanded in stop list
-#   FIX 6 — Pattern order: abbreviated Arabic before full Arabic title
+# Pattern order matters for Arabic:
+#   - Abbreviated forms (د. / د/) are matched first because they have an
+#     unambiguous delimiter. If the full دكتور pattern ran first, a name like
+#     "د.ابراهيم شعراوي دكتور عظام" could match the trailing "دكتور عظام"
+#     and return nothing after cleaning.
+#   - For English, the primary pattern uses a lookahead to stop before
+#     specialty words. The fallback captures up to 2 words with no lookahead.
 
 _AR_STOP_WORDS = {
-    # Medical specialties
     "عظام", "ومفاصل", "والمفاصل", "أسنان", "نساء", "وتوليد",
     "جلدية", "وتجميل", "نفسي", "قلب", "أطفال", "عيون",
-    # Academic / professional titles (stop if another title follows)
     "استشاري", "أستاذ", "دكتور", "دكتورة", "دكتوره",
-    # Prepositions starting a specialty phrase
     "لأمراض", "لطب", "للطب", "لتجميل", "لزراعة",
     "وليزر", "وزراعة", "جلديه",
-    # Trailing words that are not personal names
     "امام", "معروف", "حناوى",
 }
 
@@ -84,56 +65,43 @@ _EN_STOP = (
 
 def _clean_arabic(raw: str) -> Optional[str]:
     """
-    Strip trailing specialty words and cap at 3 words.
-    Returns None if nothing remains after cleaning.
-
-    Cap raised from 2 → 3:
-        Egyptian names commonly follow the pattern:
-        first + father's name + surname (e.g. "محمد عبد الشكور المحمدى").
-        A cap of 2 was silently dropping the third name component,
-        which is often necessary to uniquely identify a doctor.
-        3 words is the practical maximum before specialty words appear.
+    Strip trailing specialty words from a captured Arabic name and cap at 3 words.
+    Egyptian names typically follow: first + father's name + surname,
+    so 3 words covers the full name without bleeding into specialty descriptions.
     """
     words = raw.strip().split()
-    words = words[:3]  # cap at 3 — covers first + father's name + surname
+    words = words[:3]
     while words and words[-1] in _AR_STOP_WORDS:
         words.pop()
     return " ".join(words) if words else None
 
 
-# Each tuple: (compiled_pattern, is_arabic)
-# is_arabic=True → apply _clean_arabic() to the captured group
 _DOCTOR_PATTERNS = [
-
-    # English primary: stops before specialty words via lookahead
+    # English — stop before specialty words
     (re.compile(
         r'\bDr\.?\s*([A-Za-z]+(?:\s+[A-Za-z]+){0,2}?)'
         r'(?=\s+(?:' + _EN_STOP + r')|$)',
         re.IGNORECASE
     ), False),
 
-    # English fallback: 2 words max (no lookahead needed)
+    # English fallback — 2 words max
     (re.compile(
         r'\bDr\.?\s*([A-Za-z]+(?:\s+[A-Za-z]+){0,1})',
         re.IGNORECASE
     ), False),
 
-    # Arabic abbreviated with dot — BEFORE full title (more specific)
-    # "د. أسامة عامر" / "د.ابراهيم شعراوي"
+    # Arabic abbreviated: د. or د/
     (re.compile(
         r'د\.\s*([\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+){0,1})',
         re.UNICODE
     ), True),
 
-    # Arabic abbreviated with slash — BEFORE full title (more specific)
-    # "د/هاله سعيد" / "د/ محمد مسعد"
     (re.compile(
         r'د/\s*([\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+){0,1})',
         re.UNICODE
     ), True),
 
     # Arabic full title: دكتور / دكتورة / دكتوره / الدكتور / الدكتورة / الدكتوره
-    # Captures up to 3 words, cleaned down to 2 by _clean_arabic()
     (re.compile(
         r'(?:ال)?دكتور[ةه]?\s+([\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+){0,2})',
         re.UNICODE
@@ -144,16 +112,9 @@ _DOCTOR_PATTERNS = [
 def extract_doctor_name(clinic_name: Optional[str]) -> Optional[str]:
     """
     Extract a doctor's personal name from a clinic name string.
-
-    Handles all common Egyptian doctor title formats:
-        Dr. / Dr           → English
-        دكتور              → Arabic masculine
-        دكتورة / دكتوره    → Arabic feminine
-        الدكتور / الدكتورة → Arabic with definite article
-        د.                 → Arabic abbreviated with dot
-        د/                 → Arabic abbreviated with slash
-
-    Returns extracted name or None if no pattern matched.
+    Handles English (Dr./Dr), Arabic full titles (دكتور/دكتورة/الدكتور),
+    and Arabic abbreviated forms (د./د/).
+    Returns None if no doctor title is found.
     """
     if not clinic_name:
         return None

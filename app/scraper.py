@@ -2,37 +2,22 @@ import os
 import logging
 from typing import List, Dict
 
-from app.normalizer import normalize_phone
-
-
 from dotenv import load_dotenv
 from serpapi import GoogleSearch
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+from app.normalizer import normalize_phone
 
-# -------------------------------------------------
-# Logging
-# -------------------------------------------------
-# basicConfig is intentionally NOT called here.
-# Logging is configured once in main.py to avoid
-# duplicate handlers and conflicting format strings.
+# basicConfig is intentionally not called here — logging is configured once in main.py.
 logger = logging.getLogger(__name__)
 
-
-# -------------------------------------------------
-# Load Environment Variables
-# -------------------------------------------------
 load_dotenv()
 
 SERPAPI_KEY = os.getenv("SERPAPI_KEY")
-
 if not SERPAPI_KEY:
     raise ValueError("SERPAPI_KEY not found in environment variables.")
 
 
-# -------------------------------------------------
-# Retry Decorator for API Calls
-# -------------------------------------------------
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(min=1, max=5),
@@ -40,12 +25,7 @@ if not SERPAPI_KEY:
     reraise=True
 )
 def _call_serpapi(query: str) -> dict:
-    """
-    Internal function that calls SerpApi.
-    Wrapped with retry logic.
-    """
     logger.info(f"Calling SerpApi for query: {query}")
-
     params = {
         "engine": "google_maps",
         "q": f"{query}, Egypt",
@@ -53,23 +33,15 @@ def _call_serpapi(query: str) -> dict:
         "gl": "eg",
         "hl": "en"
     }
+    return GoogleSearch(params).get_dict()
 
 
-    search = GoogleSearch(params)
-    results = search.get_dict()
-
-    return results
-
-
-# -------------------------------------------------
-# Public Scraper Function
-# -------------------------------------------------
 def search_clinics(query: str) -> List[Dict]:
     """
-    Searches Google Maps for clinics based on query.
-    Returns a list of structured clinic dictionaries.
+    Search Google Maps for clinics matching the query and return structured results.
+    Clinics without a recognized Egyptian phone number are dropped here —
+    a phone number is the minimum we need for the output to be useful.
     """
-
     try:
         results = _call_serpapi(query)
     except Exception as e:
@@ -88,7 +60,6 @@ def search_clinics(query: str) -> List[Dict]:
         raw_phone = place.get("phone")
         normalized_phone = normalize_phone(raw_phone)
 
-        # Drop clinics without valid phone — log at DEBUG so --debug flag exposes them
         if not normalized_phone:
             logger.debug(
                 f"DROPPED (no valid phone): '{place.get('title')}' "
@@ -96,26 +67,20 @@ def search_clinics(query: str) -> List[Dict]:
             )
             continue
 
-        # SerpApi's google_maps engine does not return a direct "link" field.
-        # However it always returns a "place_id" (e.g. "ChIJkXKOZZhZwokR...").
-        # We construct the standard Google Maps URL from it.
-        # This URL opens directly to the place's Maps page when clicked.
+        # SerpApi returns a place_id rather than a direct Maps URL.
+        # We construct the standard URL from it so the output links are clickable.
         place_id = place.get("place_id")
-        if place_id:
-            maps_link = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
-        else:
-            maps_link = None
+        maps_link = (
+            f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+            if place_id else None
+        )
 
-        clinic = {
+        clinics.append({
             "clinic_name": place.get("title"),
             "phone_number": normalized_phone,
             "address": place.get("address"),
             "maps_link": maps_link
-        }
-
-        clinics.append(clinic)
-
+        })
 
     logger.info(f"Fetched {len(clinics)} results.")
-
     return clinics
