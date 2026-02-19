@@ -1,5 +1,5 @@
 import re
-from typing import Optional, List
+from typing import Optional
 
 
 # -------------------------------------------------
@@ -10,121 +10,153 @@ def normalize_phone(phone: Optional[str]) -> Optional[str]:
     """
     Normalize Egyptian phone numbers to international format.
 
-    Mobile:
-        01XXXXXXXXX  -> +201XXXXXXXXX
-
-    Landline:
-        02XXXXXXXX   -> +202XXXXXXXX
-        03XXXXXXXX   -> +203XXXXXXXX
-
-    Returns:
-        Normalized phone number string or None if invalid.
+    Mobile:       01XXXXXXXXX  → +201XXXXXXXXX
+    Cairo:        02XXXXXXXX   → +202XXXXXXXX
+    Alexandria:   03XXXXXXX    → +203XXXXXXX
     """
-
     if not phone:
         return None
 
-    # Remove spaces, dashes, parentheses
     cleaned = re.sub(r"[^\d+]", "", phone)
 
-    # -------------------------------------------------
-    # Case 1: Already international mobile
-    # Example: +201115111171
-    # -------------------------------------------------
     if re.fullmatch(r"\+201[0-9]{9}", cleaned):
         return cleaned
-
-    # -------------------------------------------------
-    # Case 2: Local mobile
-    # Example: 01115111171
-    # -------------------------------------------------
     if re.fullmatch(r"01[0-9]{9}", cleaned):
         return "+2" + cleaned
-
-    # -------------------------------------------------
-    # Case 3: Landline Cairo (02XXXXXXXX)
-    # -------------------------------------------------
     if re.fullmatch(r"02[0-9]{8}", cleaned):
         return "+2" + cleaned
+    if re.fullmatch(r"03[0-9]{7}", cleaned):
+        return "+2" + cleaned
 
-    # -------------------------------------------------
-    # Case 5: Multiple numbers in one string
-    # Extract first valid mobile
-    # -------------------------------------------------
     mobile_match = re.search(r"01[0-9]{9}", cleaned)
     if mobile_match:
         return "+2" + mobile_match.group()
 
-    # -------------------------------------------------
-    # No valid Egyptian number found
-    # -------------------------------------------------
     return None
 
 
 # -------------------------------------------------
-# Doctor Name Extractor (Regex-Based)
+# Doctor Name Extractor
 # -------------------------------------------------
-# These patterns cover the most common Egyptian clinic naming conventions.
-# We try them in order — most specific first.
+#
+# Strategy: capture-then-clean
+#   1. Capture up to 2-3 words after the doctor title
+#   2. Strip trailing medical specialty words from the capture
+#   3. Hard-cap at 2 Arabic words (Egyptian names = first + surname)
+#
+# Pattern ordering matters:
+#   - Arabic abbreviated forms (د. / د/) run BEFORE the full دكتور pattern
+#     because they have an unambiguous delimiter (. or /) and are more specific.
+#     If دكتور ran first, "د.ابراهيم شعراوي دكتور عظام" would match the
+#     trailing "دكتور عظام" and return None after cleaning.
+#   - English primary (with lookahead stop) runs before English fallback.
+#
+# Fixes vs previous version:
+#   FIX 1 — دكتورة / دكتوره (feminine forms) added to pattern
+#   FIX 2 — الدكتور / الدكتورة / الدكتوره (definite article form) added
+#   FIX 3 — د/ (slash variant) added as separate pattern
+#   FIX 4 — Arabic specialty words stripped from capture via _clean_arabic()
+#   FIX 5 — English specialty words expanded in stop list
+#   FIX 6 — Pattern order: abbreviated Arabic before full Arabic title
 
-# Each tuple is (pattern, group_index_to_extract)
-# re.IGNORECASE makes it match "Dr." "dr." "DR." etc.
-# re.UNICODE makes Arabic characters work correctly.
+_AR_STOP_WORDS = {
+    # Medical specialties
+    "عظام", "ومفاصل", "والمفاصل", "أسنان", "نساء", "وتوليد",
+    "جلدية", "وتجميل", "نفسي", "قلب", "أطفال", "عيون",
+    # Academic / professional titles (stop if another title follows)
+    "استشاري", "أستاذ", "دكتور", "دكتورة", "دكتوره",
+    # Prepositions starting a specialty phrase
+    "لأمراض", "لطب", "للطب", "لتجميل", "لزراعة",
+    "وليزر", "وزراعة", "جلديه",
+    # Trailing words that are not personal names
+    "امام", "معروف", "حناوى",
+}
 
-_DOCTOR_PATTERNS: List[re.Pattern] = [
+_EN_STOP = (
+    r"Dental|Dentist|Clinic|Clinics|Center|Centre|Medical|Care|"
+    r"Pediatric|Paediatric|Orthopedic|Orthopaedic|Cardiology|"
+    r"Cardio|Dermatology|Derma|Skin|Psychiatry|Psychiatric|"
+    r"Gynecologist|Gynaecologist|Surgeon|Surgery|Spine|"
+    r"Aesthetic|Aesthetics|Laser|Wellness|Institute|Child|"
+    r"and|&|\||-|/"
+)
 
-    # English primary: "Dr. Ahmed Samy" or "Dr.Reham" (with or without space after dot)
-    # Stops capturing before non-name words like Dental, Clinic, Center, Care, &
-    # The lookahead (?=...) checks what comes AFTER the name without consuming it.
-    re.compile(
+
+def _clean_arabic(raw: str) -> Optional[str]:
+    """
+    Strip trailing specialty words and cap at 2 words.
+    Returns None if nothing remains after cleaning.
+    """
+    words = raw.strip().split()
+    words = words[:2]  # hard cap — Egyptian names are first + surname
+    while words and words[-1] in _AR_STOP_WORDS:
+        words.pop()
+    return " ".join(words) if words else None
+
+
+# Each tuple: (compiled_pattern, is_arabic)
+# is_arabic=True → apply _clean_arabic() to the captured group
+_DOCTOR_PATTERNS = [
+
+    # English primary: stops before specialty words via lookahead
+    (re.compile(
         r'\bDr\.?\s*([A-Za-z]+(?:\s+[A-Za-z]+){0,2}?)'
-        r'(?=\s+(?:Dental|Dentist|Clinic|Center|Medical|Care|&|and|\||-|/)|$)',
+        r'(?=\s+(?:' + _EN_STOP + r')|$)',
         re.IGNORECASE
-    ),
+    ), False),
 
-    # English fallback: grab up to 3 words after Dr (catches edge cases the primary misses)
-    re.compile(
-        r'\bDr\.?\s*([A-Za-z]+(?:\s+[A-Za-z]+){0,2})',
+    # English fallback: 2 words max (no lookahead needed)
+    (re.compile(
+        r'\bDr\.?\s*([A-Za-z]+(?:\s+[A-Za-z]+){0,1})',
         re.IGNORECASE
-    ),
+    ), False),
 
-    # Arabic full word: "دكتور محمد علي" — limited to 2 words (first + last name)
-    re.compile(
-        r'دكتور\s+([\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+)?)',
+    # Arabic abbreviated with dot — BEFORE full title (more specific)
+    # "د. أسامة عامر" / "د.ابراهيم شعراوي"
+    (re.compile(
+        r'د\.\s*([\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+){0,1})',
         re.UNICODE
-    ),
+    ), True),
 
-    # Arabic abbreviated: "د. أسامة عامر" — limited to 2 words
-    re.compile(
-        r'د\.\s*([\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+)?)',
+    # Arabic abbreviated with slash — BEFORE full title (more specific)
+    # "د/هاله سعيد" / "د/ محمد مسعد"
+    (re.compile(
+        r'د/\s*([\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+){0,1})',
         re.UNICODE
-    ),
+    ), True),
+
+    # Arabic full title: دكتور / دكتورة / دكتوره / الدكتور / الدكتورة / الدكتوره
+    # Captures up to 3 words, cleaned down to 2 by _clean_arabic()
+    (re.compile(
+        r'(?:ال)?دكتور[ةه]?\s+([\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+){0,2})',
+        re.UNICODE
+    ), True),
 ]
 
 
 def extract_doctor_name(clinic_name: Optional[str]) -> Optional[str]:
     """
-    Attempts to extract a doctor's name from a clinic name string
-    using regex pattern matching.
+    Extract a doctor's personal name from a clinic name string.
 
-    Examples:
-        "Dr. Ahmed Samy Dental Clinic"  → "Ahmed Samy"
-        "911 Dental clinic - Dr shereef Azab" → "shereef Azab"
-        "دكتور محمد علي للأسنان"        → "محمد علي"
-        "د. أسامة عامر لتجميل الأسنان" → "أسامة عامر"
-        "Ultra Dental Care"             → None
+    Handles all common Egyptian doctor title formats:
+        Dr. / Dr           → English
+        دكتور              → Arabic masculine
+        دكتورة / دكتوره    → Arabic feminine
+        الدكتور / الدكتورة → Arabic with definite article
+        د.                 → Arabic abbreviated with dot
+        د/                 → Arabic abbreviated with slash
 
-    Returns:
-        Extracted name string, or None if no pattern matched.
+    Returns extracted name or None if no pattern matched.
     """
     if not clinic_name:
         return None
 
-    for pattern in _DOCTOR_PATTERNS:
+    for pattern, is_arabic in _DOCTOR_PATTERNS:
         match = pattern.search(clinic_name)
         if match:
-            # group(1) is the first capture group — the name part
-            # .strip() removes any leading/trailing spaces
-            return match.group(1).strip()
+            raw = match.group(1).strip()
+            result = _clean_arabic(raw) if is_arabic else raw
+            if result:
+                return result
 
     return None
