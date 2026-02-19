@@ -129,7 +129,6 @@ async def run(query: str, batch_size: int, delay: float):
     # Step 4: Save
     storage = CSVStorage()
     storage.save_clinics(filtered_clinics)
-    storage.save_clinics(filtered_clinics)
 
 
 # -------------------------------------------------

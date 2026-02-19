@@ -42,7 +42,7 @@ def normalize_phone(phone: Optional[str]) -> Optional[str]:
 # Strategy: capture-then-clean
 #   1. Capture up to 2-3 words after the doctor title
 #   2. Strip trailing medical specialty words from the capture
-#   3. Hard-cap at 2 Arabic words (Egyptian names = first + surname)
+#   3. Hard-cap at 3 Arabic words (Egyptian names = first + father's name + surname)
 #
 # Pattern ordering matters:
 #   - Arabic abbreviated forms (د. / د/) run BEFORE the full دكتور pattern
@@ -84,11 +84,18 @@ _EN_STOP = (
 
 def _clean_arabic(raw: str) -> Optional[str]:
     """
-    Strip trailing specialty words and cap at 2 words.
+    Strip trailing specialty words and cap at 3 words.
     Returns None if nothing remains after cleaning.
+
+    Cap raised from 2 → 3:
+        Egyptian names commonly follow the pattern:
+        first + father's name + surname (e.g. "محمد عبد الشكور المحمدى").
+        A cap of 2 was silently dropping the third name component,
+        which is often necessary to uniquely identify a doctor.
+        3 words is the practical maximum before specialty words appear.
     """
     words = raw.strip().split()
-    words = words[:2]  # hard cap — Egyptian names are first + surname
+    words = words[:3]  # cap at 3 — covers first + father's name + surname
     while words and words[-1] in _AR_STOP_WORDS:
         words.pop()
     return " ".join(words) if words else None

@@ -51,6 +51,8 @@ client = AsyncGroq(api_key=GROQ_API_KEY)
 #   _DOCTOR_TITLES:    added دكتورة, دكتوره, الدكتور, الدكتورة, الدكتوره, د/
 #   _TITLE_CANCELLERS: no changes needed (center/مركز already present)
 
+import re as _re
+
 _EXCLUDE_KEYWORDS = [
     # Hospitals
     "hospital", "مستشفى",
@@ -58,10 +60,11 @@ _EXCLUDE_KEYWORDS = [
     "مصحة",
     # Pharmacies
     "pharmacy", "صيدلية",
-    # Labs
-    "lab", "laboratory", "معمل", "مختبر",
-    # Imaging / diagnostic
-    "scan", "x-ray", "xray", "imaging", "radiology",
+    # Labs — NOTE: "lab" is intentionally NOT here (substring false-positives
+    # e.g. "Labib", "elaborate"). Use _EXCLUDE_WHOLE_WORDS below instead.
+    "laboratory", "معمل", "مختبر",
+    # Imaging / diagnostic — "scan" moved to word-boundary list (see below)
+    "x-ray", "xray", "imaging", "radiology",
     # Clearly corporate entities
     "medical center", "مركز طبي", "مركز صحي",
     # Companies — not patient-facing clinics
@@ -69,6 +72,15 @@ _EXCLUDE_KEYWORDS = [
     # Large complexes
     "مجمع",
 ]
+
+# Keywords that require whole-word matching to avoid substring false-positives.
+#   "lab"  → would match "Labib", "elaborate"
+#   "scan" → would match "Scandinavian" (unlikely but possible)
+# We check these with \b word boundaries via regex.
+_EXCLUDE_WHOLE_WORDS = _re.compile(
+    r'(lab|scan)(?![a-z])',
+    _re.IGNORECASE
+)
 
 # ALL known doctor title forms in Egyptian naming conventions.
 # Includes feminine variants (دكتورة/دكتوره), definite article forms
@@ -91,13 +103,21 @@ _DOCTOR_TITLES = [
 # If any of these appear in a name, cancel the rule-accept
 # even if a doctor title is present.
 # e.g. "Dr. X Medical Center" → has title but also has "center" → LLM decides
+# Same word-boundary concern applies here — "lab" and "scan" are checked
+# via regex inside is_obviously_a_clinic() rather than as plain substrings.
 _TITLE_CANCELLERS = [
     "center", "centre", "centers",
     "مركز",
     "hospital", "مستشفى",
-    "scan", "lab", "معمل",
+    "معمل",
     "complex", "مجمع",
 ]
+
+# Word-boundary version of the cancellers that need it.
+_CANCELLER_WHOLE_WORDS = _re.compile(
+    r'(lab|scan)(?![a-z])',
+    _re.IGNORECASE
+)
 
 
 def _name_lower(name: str) -> str:
@@ -111,9 +131,18 @@ def is_obviously_not_clinic(name: str) -> bool:
 
     Catches: hospitals, pharmacies, labs, sanatoriums (مصحة),
     imaging centers, corporate medical centers, companies.
+
+    Two-stage check:
+      1. Simple substring match for long unambiguous keywords.
+      2. Word-boundary regex for short keywords ("lab", "scan") that
+         would otherwise fire on names like "Dr. Labib" or "Scandinavian".
     """
     n = _name_lower(name)
-    return any(keyword in n for keyword in _EXCLUDE_KEYWORDS)
+    if any(keyword in n for keyword in _EXCLUDE_KEYWORDS):
+        return True
+    if _EXCLUDE_WHOLE_WORDS.search(n):
+        return True
+    return False
 
 
 def is_obviously_a_clinic(name: str) -> bool:
@@ -150,7 +179,10 @@ def is_obviously_a_clinic(name: str) -> bool:
     """
     n = _name_lower(name)
 
-    has_canceller = any(c in n for c in _TITLE_CANCELLERS)
+    has_canceller = (
+        any(c in n for c in _TITLE_CANCELLERS)
+        or bool(_CANCELLER_WHOLE_WORDS.search(n))
+    )
     if has_canceller:
         return False
 

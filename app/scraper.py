@@ -11,13 +11,11 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 
 
 # -------------------------------------------------
-# Logging Configuration
+# Logging
 # -------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
+# basicConfig is intentionally NOT called here.
+# Logging is configured once in main.py to avoid
+# duplicate handlers and conflicting format strings.
 logger = logging.getLogger(__name__)
 
 

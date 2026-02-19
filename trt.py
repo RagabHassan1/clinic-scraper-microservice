@@ -1,2 +1,0 @@
-Already found laser/wellness edge cases
-Cardiologist in HeliopolisOften named after the doctor only, no clinic keywordPediatrician in New CairoMixed Arabic/English names commonOrthopedic in Dokki"Center" in name very common for this specialtyGynecologist in AlexandriaHeavy Arabic naming, fewer English keywordsPsychiatrist in MaadiOften no clinic keyword, just a name and address
