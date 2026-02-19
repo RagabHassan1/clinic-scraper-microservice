@@ -1,0 +1,7 @@
+services:
+  clinic-scraper:
+    build: .
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    command: ["--query", "Dentist in October", "--debug"]

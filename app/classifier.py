@@ -24,7 +24,7 @@ client = AsyncGroq(api_key=GROQ_API_KEY)
 #
 # The classifier works in three layers. Rules handle the easy cases first,
 # so the LLM only sees genuinely ambiguous names. This keeps API calls low
-# and classification fast.
+# and classification fast also reduce the amount of tokens since i do not call the LLM for obvious cases. 
 #
 #   Layer 1a — hard excludes: hospitals, pharmacies, labs, imaging centers, etc.
 #   Layer 1b — hard accepts:  names with an explicit doctor title and no red flags

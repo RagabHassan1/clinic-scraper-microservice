@@ -5,7 +5,7 @@ from typing import Optional
 def normalize_phone(phone: Optional[str]) -> Optional[str]:
     """
     Normalize Egyptian phone numbers to international format (+2XXXXXXXXXX).
-    Handles mobile lines (01x), Cairo landlines (02x), and Alexandria (03x).
+    Handles mobile lines (01x), Cairo landlines (02x) only.
     Returns None if the input doesn't match any recognized Egyptian format.
     """
     if not phone:
@@ -19,8 +19,7 @@ def normalize_phone(phone: Optional[str]) -> Optional[str]:
         return "+2" + cleaned
     if re.fullmatch(r"02[0-9]{8}", cleaned):
         return "+2" + cleaned
-    if re.fullmatch(r"03[0-9]{7}", cleaned):
-        return "+2" + cleaned
+  
 
     # Some numbers come embedded in longer strings (e.g. "Tel: 01012345678 ext 3").
     # Try extracting a mobile number as a last resort.
@@ -50,7 +49,7 @@ _AR_STOP_WORDS = {
     "استشاري", "أستاذ", "دكتور", "دكتورة", "دكتوره",
     "لأمراض", "لطب", "للطب", "لتجميل", "لزراعة",
     "وليزر", "وزراعة", "جلديه",
-    "امام", "معروف", "حناوى",
+    "امام", "اخصائي"
 }
 
 _EN_STOP = (
